@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SafeMap — Bengaluru Women's Safety</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+:root {
+  --bg: #080b0f;
+  --bg-card: #0e1318;
+  --bg-surface: #141c24;
+  --bg-hover: #1a242e;
+  --border: rgba(255,255,255,0.07);
+  --border-hover: rgba(255,255,255,0.13);
+  --text: #dce8f0;
+  --text-muted: #6e8499;
+  --text-dim: #3d5060;
+  --accent: #ff3d5e;
+  --accent-soft: rgba(255,61,94,0.12);
+  --safe: #00cc7e;
+  --safe-soft: rgba(0,204,126,0.1);
+  --warn: #ffad00;
+  --warn-soft: rgba(255,173,0,0.1);
+  --danger: #ff3d5e;
+  --danger-soft: rgba(255,61,94,0.1);
+  --info: #3d9bff;
+  --r: 10px;
+  --rs: 7px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
+
+/* ─ HEADER ─ */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; height: 54px; flex-shrink: 0;
+  background: var(--bg-card); border-bottom: 1px solid var(--border);
+  z-index: 1000;
+}
+.logo { display: flex; align-items: center; gap: 9px; }
+.logo-mark {
+  width: 28px; height: 28px; background: var(--accent);
+  border-radius: 7px; display: flex; align-items: center; justify-content: center;
+}
+.logo-mark svg { width: 14px; height: 14px; fill: #fff; }
+.logo-text { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -0.2px; }
+.logo-text b { color: var(--accent); font-weight: 700; }
+.header-center { font-size: 11px; color: var(--text-dim); letter-spacing: 1.2px; text-transform: uppercase; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.pill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;
+}
+.pill-green { background: var(--safe-soft); color: var(--safe); border: 1px solid rgba(0,204,126,0.18); }
+.pill-orange { background: var(--warn-soft); color: var(--warn); border: 1px solid rgba(255,173,0,0.18); }
+.dot { width: 5px; height: 5px; border-radius: 50%; animation: blink 2s infinite; }
+.dot-green { background: var(--safe); } .dot-orange { background: var(--warn); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/* ─ BODY ─ */
+.body { display: flex; flex: 1; overflow: hidden; }
+
+/* ─ SIDEBAR ─ */
+.sidebar {
+  width: 300px; flex-shrink: 0;
+  background: var(--bg-card); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sidebar-scroll {
+  flex: 1; overflow-y: auto; padding: 14px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+
+/* ─ STATS ─ */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.stat {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--rs); padding: 11px 13px;
+}
+.stat-l { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.9px; margin-bottom: 4px; }
+.stat-v { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; line-height: 1; }
+.stat-s { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+.c-danger { color: var(--danger); } .c-warn { color: var(--warn); } .c-safe { color: var(--safe); } .c-info { color: var(--info); }
+
+/* ─ SECTION ─ */
+.sec { margin-bottom: 18px; }
+.sec-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 9px; font-weight: 500; }
+
+/* ─ DATA SOURCE BANNER ─ */
+.datasource-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 11px; border-radius: var(--rs);
+  font-size: 11px; margin-bottom: 14px;
+  border: 1px solid;
+}
+.ds-csv { background: var(--safe-soft); border-color: rgba(0,204,126,0.2); color: var(--safe); }
+.ds-synthetic { background: var(--warn-soft); border-color: rgba(255,173,0,0.2); color: var(--warn); }
+
+/* ─ FILTERS ─ */
+.filter-row { margin-bottom: 9px; }
+.filter-l { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
+select {
+  width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+  color: var(--text); padding: 7px 10px; border-radius: var(--rs);
+  font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: pointer; outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0l4.5 5L9 0z' fill='%236e8499'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+}
+select:hover { border-color: var(--border-hover); }
+
+/* ─ AREA LIST ─ */
+.area-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 11px; background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--rs); margin-bottom: 5px; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.area-item:hover { border-color: var(--border-hover); background: var(--bg-hover); }
+.area-item.active { border-color: var(--accent); }
+.area-name { font-size: 12px; font-weight: 500; }
+.area-meta { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+.risk-tag { font-size: 9px; font-weight: 600; padding: 3px 7px; border-radius: 10px; letter-spacing: 0.3px; border: 1px solid; flex-shrink: 0; }
+.rt-high { background: var(--danger-soft); color: var(--danger); border-color: rgba(255,61,94,.2); }
+.rt-med  { background: var(--warn-soft);   color: var(--warn);   border-color: rgba(255,173,0,.2); }
+.rt-low  { background: var(--safe-soft);   color: var(--safe);   border-color: rgba(0,204,126,.2); }
+
+/* ─ CRIME BARS ─ */
+.bar-item { margin-bottom: 8px; }
+.bar-header { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
+.bar-track { height: 4px; background: var(--bg-surface); border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width .9s cubic-bezier(.4,0,.2,1); }
+
+/* ─ SPARKLINE ─ */
+#hourly-canvas { display: block; width: 100%; height: 52px; }
+
+/* ─ MAP ─ */
+.map-wrap { flex: 1; position: relative; overflow: hidden; }
+#map { width: 100%; height: 100%; }
+
+/* ─ MAP CONTROLS ─ */
+.map-controls {
+  position: absolute; top: 14px; right: 14px; z-index: 900;
+  display: flex; flex-direction: column; gap: 7px;
+}
+.mc-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text); width: 36px; height: 36px; border-radius: var(--rs);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 15px; transition: border-color .15s;
+  title: attr(title);
+}
+.mc-btn:hover { border-color: var(--border-hover); }
+.mc-btn.on { border-color: var(--accent); background: var(--accent-soft); }
+
+/* ─ LEGEND ─ */
+.legend {
+  position: absolute; bottom: 20px; left: 14px; z-index: 900;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 11px 14px; min-width: 170px;
+}
+.legend-title { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.9px; margin-bottom: 9px; }
+.legend-row { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; font-size: 11px; color: var(--text-muted); }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* ─ POPUP ─ */
+.popup {
+  position: absolute; bottom: 20px; right: 14px; z-index: 900;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 15px; width: 230px;
+  display: none;
+}
+.popup.show { display: block; animation: popIn .18s ease; }
+@keyframes popIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+.popup-close {
+  position: absolute; top: 10px; right: 11px;
+  background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px;
+}
+.popup-zone-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 5px; }
+.popup-risk-title { font-family: 'Syne', sans-serif; font-size: 19px; font-weight: 700; margin-bottom: 8px; }
+.popup-bar-track { height: 3px; background: var(--bg-surface); border-radius: 2px; margin-bottom: 11px; }
+.popup-bar-fill { height: 100%; border-radius: 2px; }
+.popup-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.popup-row span:last-child { color: var(--text); font-weight: 500; }
+.popup-divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+/* ─ LOADING ─ */
+.loader {
+  position: absolute; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 9999; gap: 14px; transition: opacity .4s;
+}
+.loader.done { opacity: 0; pointer-events: none; }
+.spinner { width: 32px; height: 32px; border: 2.5px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .75s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loader-text { font-size: 12px; color: var(--text-muted); }
+.loader-sub { font-size: 10px; color: var(--text-dim); margin-top: -6px; }
+
+/* ─ LEAFLET OVERRIDES ─ */
+.leaflet-container { background: #0b1016 !important; }
+.leaflet-tile { filter: brightness(.82) saturate(.55) hue-rotate(195deg); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+    </div>
+    <div class="logo-text">Safe<b>Map</b></div>
+  </div>
+  <div class="header-center">Bengaluru Women's Safety Intelligence</div>
+  <div class="header-right">
+    <div class="pill pill-green" id="data-pill">
+      <div class="dot dot-green"></div>
+      <span id="data-pill-text">Loading...</span>
+    </div>
+    <div class="pill pill-green">
+      <div class="dot dot-green"></div>
+      ML Active
+    </div>
+  </div>
+</header>
+
+<!-- BODY -->
+<div class="body">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-scroll">
+
+      <!-- Data Source Banner -->
+      <div class="datasource-banner ds-synthetic" id="ds-banner">
+        <span id="ds-icon">⚠️</span>
+        <span id="ds-text">Loading data source...</span>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-l">Total Incidents</div>
+          <div class="stat-v c-danger" id="s-total">—</div>
+          <div class="stat-s">Bengaluru 2024</div>
+        </div>
+        <div class="stat">
+          <div class="stat-l">High Risk Zones</div>
+          <div class="stat-v c-warn" id="s-zones">—</div>
+          <div class="stat-s">ML Classified</div>
+        </div>
+        <div class="stat">
+          <div class="stat-l">Night Crimes</div>
+          <div class="stat-v c-danger" id="s-night">—</div>
+          <div class="stat-s">After 8 PM</div>
+        </div>
+        <div class="stat">
+          <div class="stat-l">Top Crime</div>
+          <div class="stat-v c-warn" id="s-crime" style="font-size:11px;padding-top:3px">—</div>
+          <div class="stat-s">Most Frequent</div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="sec">
+        <div class="sec-label">Filters</div>
+        <div class="filter-row">
+          <div class="filter-l">Crime Type</div>
+          <select id="f-crime" onchange="applyFilters()">
+            <option value="all">All Crime Types</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <div class="filter-l">Time of Day</div>
+          <select id="f-time" onchange="applyFilters()">
+            <option value="all">All Hours</option>
+            <option value="day">Daytime (6AM – 8PM)</option>
+            <option value="night">Nighttime (8PM – 6AM)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Area Safety -->
+      <div class="sec">
+        <div class="sec-label">Area Safety Scores</div>
+        <div id="area-list"></div>
+      </div>
+
+      <!-- Crime Distribution -->
+      <div class="sec">
+        <div class="sec-label">Crime Distribution</div>
+        <div id="crime-bars"></div>
+      </div>
+
+      <!-- Hourly Pattern -->
+      <div class="sec">
+        <div class="sec-label">Hourly Pattern</div>
+        <canvas id="hourly-canvas"></canvas>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="map-wrap">
+
+    <div class="loader" id="loader">
+      <div class="spinner"></div>
+      <div class="loader-text">Running ML pipeline...</div>
+      <div class="loader-sub">K-Means clustering · Logistic Regression</div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Layer Toggles -->
+    <div class="map-controls">
+      <button class="mc-btn on" id="btn-heat" title="Heatmap" onclick="toggleLayer('heat')">🔥</button>
+      <button class="mc-btn" id="btn-zones" title="Risk Zones" onclick="toggleLayer('zones')">⬡</button>
+      <button class="mc-btn" id="btn-pins" title="Incident Pins" onclick="toggleLayer('pins')">📍</button>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-title">Risk Level</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#ff3d5e"></div> High Risk</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#ffad00"></div> Medium Risk</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#00cc7e"></div> Low Risk</div>
+      <div class="legend-row"><div class="legend-dot" style="background:rgba(255,61,94,.25)"></div> Heatmap Density</div>
+    </div>
+
+    <!-- Zone Popup -->
+    <div class="popup" id="popup">
+      <button class="popup-close" onclick="closePopup()">✕</button>
+      <div class="popup-zone-label" id="p-label">Zone</div>
+      <div class="popup-risk-title" id="p-risk">—</div>
+      <div class="popup-bar-track"><div class="popup-bar-fill" id="p-bar"></div></div>
+      <div class="popup-row"><span>Incidents</span><span id="p-count">—</span></div>
+      <div class="popup-row"><span>Top Crime</span><span id="p-crime">—</span></div>
+      <div class="popup-row"><span>Night Crimes</span><span id="p-night">—</span></div>
+      <div class="popup-row"><span>Risk Score</span><span id="p-score">—</span></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:5000/api';
+
+// ─ Map Setup ──────────────────────────────────────────────────────────────────
+const map = L.map('map', {
+  center: [12.9716, 77.5946],
+  zoom: 12,
+  zoomControl: false,
+  attributionControl: false
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+// ─ Layers ────────────────────────────────────────────────────────────────────
+let heatLayer = null;
+const zoneLayer = L.layerGroup().addTo(map);
+const pinLayer  = L.layerGroup();
+const layers = { heat: true, zones: false, pins: false };
+
+function toggleLayer(name) {
+  layers[name] = !layers[name];
+  document.getElementById('btn-' + name).classList.toggle('on', layers[name]);
+  if (name === 'heat') {
+    if (layers.heat && heatLayer) map.addLayer(heatLayer);
+    else if (heatLayer) map.removeLayer(heatLayer);
+  }
+  if (name === 'zones') { layers.zones ? map.addLayer(zoneLayer) : map.removeLayer(zoneLayer); }
+  if (name === 'pins')  { layers.pins  ? map.addLayer(pinLayer)  : map.removeLayer(pinLayer);  }
+}
+
+// ─ Load Heatmap ───────────────────────────────────────────────────────────────
+async function loadHeatmap(crimeType = 'all', timeRange = 'all') {
+  const res = await fetch(`${API}/heatmap?crime_type=${encodeURIComponent(crimeType)}&time_range=${timeRange}`);
+  const data = await res.json();
+  if (heatLayer) map.removeLayer(heatLayer);
+  heatLayer = L.heatLayer(data.points, {
+    radius: 30, blur: 24, maxZoom: 14, max: 1.0,
+    gradient: { 0.0: 'rgba(0,204,126,0)', 0.25: '#00cc7e', 0.5: '#ffad00', 0.72: '#ff6b2b', 1.0: '#ff3d5e' }
+  });
+  if (layers.heat) map.addLayer(heatLayer);
+}
+
+// ─ Load Zones ─────────────────────────────────────────────────────────────────
+async function loadZones() {
+  const res = await fetch(`${API}/zones`);
+  const data = await res.json();
+  zoneLayer.clearLayers();
+  pinLayer.clearLayers();
+
+  data.zones.forEach(z => {
+    const col = z.risk_label === 'High' ? '#ff3d5e' : z.risk_label === 'Medium' ? '#ffad00' : '#00cc7e';
+    const r   = z.risk_label === 'High' ? 20 : z.risk_label === 'Medium' ? 15 : 11;
+
+    const circle = L.circleMarker([z.lat, z.lon], {
+      radius: r, color: col, fillColor: col, fillOpacity: 0.15, weight: 1.5, opacity: 0.65
+    });
+    circle.on('click', () => showPopup(z, col));
+    zoneLayer.addLayer(circle);
+
+    const pin = L.circleMarker([z.lat, z.lon], {
+      radius: 4.5, color: col, fillColor: col, fillOpacity: 0.9, weight: 1
+    });
+    pin.on('click', () => showPopup(z, col));
+    pinLayer.addLayer(pin);
+  });
+}
+
+// ─ Popup ──────────────────────────────────────────────────────────────────────
+function showPopup(z, col) {
+  document.getElementById('p-label').textContent = `Cluster Zone ${z.cluster_id}`;
+  document.getElementById('p-risk').textContent = z.risk_label + ' Risk';
+  document.getElementById('p-risk').style.color = col;
+  const bar = document.getElementById('p-bar');
+  bar.style.width = Math.round(z.risk_score * 100) + '%';
+  bar.style.background = col;
+  document.getElementById('p-count').textContent = z.incident_count;
+  document.getElementById('p-crime').textContent = z.top_crime;
+  document.getElementById('p-night').textContent = Math.round(z.night_ratio * 100) + '%';
+  document.getElementById('p-score').textContent = Math.round(z.risk_score * 100) + ' / 100';
+  document.getElementById('popup').classList.add('show');
+  map.panTo([z.lat, z.lon]);
+}
+function closePopup() { document.getElementById('popup').classList.remove('show'); }
+
+// ─ Area Safety List ───────────────────────────────────────────────────────────
+async function loadAreas() {
+  const res = await fetch(`${API}/area-safety`);
+  const data = await res.json();
+  const el = document.getElementById('area-list');
+  el.innerHTML = '';
+  data.areas.forEach(a => {
+    const cls = a.risk_level === 'High' ? 'rt-high' : a.risk_level === 'Medium' ? 'rt-med' : 'rt-low';
+    const div = document.createElement('div');
+    div.className = 'area-item';
+    div.innerHTML = `
+      <div>
+        <div class="area-name">${a.area}</div>
+        <div class="area-meta">${a.incidents} incidents · ${a.night_crime_pct}% night</div>
+      </div>
+      <span class="risk-tag ${cls}">${a.risk_level}</span>`;
+    div.onclick = () => {
+      map.flyTo([a.lat, a.lon], 14, { duration: 1.1 });
+      document.querySelectorAll('.area-item').forEach(i => i.classList.remove('active'));
+      div.classList.add('active');
+    };
+    el.appendChild(div);
+  });
+}
+
+// ─ Stats ──────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const res = await fetch(`${API}/stats`);
+  const data = await res.json();
+
+  document.getElementById('s-total').textContent = data.total_incidents.toLocaleString();
+  document.getElementById('s-zones').textContent = data.high_risk_zones;
+  document.getElementById('s-night').textContent = data.night_crime_pct + '%';
+  document.getElementById('s-crime').textContent = data.most_common_crime;
+
+  // Update data source banner
+  const isCSV = data.data_source === 'csv';
+  const banner = document.getElementById('ds-banner');
+  banner.className = 'datasource-banner ' + (isCSV ? 'ds-csv' : 'ds-synthetic');
+  document.getElementById('ds-icon').textContent = isCSV ? '✅' : '⚠️';
+  document.getElementById('ds-text').textContent = isCSV
+    ? `Live CSV · ${data.total_incidents} records loaded`
+    : `Synthetic data · Add real CSV to /data/`;
+
+  // Data pill in header
+  const pill = document.getElementById('data-pill');
+  pill.className = 'pill ' + (isCSV ? 'pill-green' : 'pill-orange');
+  pill.querySelector('.dot').className = 'dot ' + (isCSV ? 'dot-green' : 'dot-orange');
+  document.getElementById('data-pill-text').textContent = isCSV ? 'CSV Data' : 'Synthetic';
+
+  // Crime bars
+  const bars = document.getElementById('crime-bars');
+  bars.innerHTML = '';
+  const total = Object.values(data.crime_distribution).reduce((a, b) => a + b, 0);
+  Object.entries(data.crime_distribution)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([type, count]) => {
+      const pct = Math.round(count / total * 100);
+      bars.innerHTML += `
+        <div class="bar-item">
+          <div class="bar-header"><span>${type}</span><span>${pct}%</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        </div>`;
+    });
+
+  // Sparkline
+  drawSparkline(data.hourly_distribution);
+}
+
+// ─ Crime Type Filter (dynamic from API) ───────────────────────────────────────
+async function loadCrimeTypes() {
+  const res = await fetch(`${API}/crime-types`);
+  const data = await res.json();
+  const sel = document.getElementById('f-crime');
+  data.crime_types.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    sel.appendChild(opt);
+  });
+}
+
+// ─ Filters ───────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const crime = document.getElementById('f-crime').value;
+  const time  = document.getElementById('f-time').value;
+  loadHeatmap(crime, time);
+}
+
+// ─ Hourly Sparkline ───────────────────────────────────────────────────────────
+function drawSparkline(hourly) {
+  const canvas = document.getElementById('hourly-canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.offsetWidth, h = 52;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const vals = Array.from({ length: 24 }, (_, i) => Number(hourly[String(i)] || 0));
+  const max = Math.max(...vals) || 1;
+  const step = w / 23;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Night shading
+  ctx.fillStyle = 'rgba(255,61,94,0.05)';
+  ctx.fillRect(0, 0, step * 6, h - 10);
+  ctx.fillRect(step * 20, 0, w - step * 20, h - 10);
+
+  // Fill
+  ctx.beginPath();
+  vals.forEach((v, i) => {
+    const x = i * step, y = (h - 10) - (v / max) * (h - 18) - 2;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo((23) * step, h - 10);
+  ctx.lineTo(0, h - 10);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,61,94,0.08)';
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  vals.forEach((v, i) => {
+    const x = i * step, y = (h - 10) - (v / max) * (h - 18) - 2;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#ff3d5e';
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Hour labels
+  ctx.fillStyle = '#3d5060';
+  ctx.font = `${9 * (1 / (dpr > 1 ? 1 : 1))}px DM Sans`;
+  ctx.textAlign = 'center';
+  [0, 6, 12, 18, 23].forEach(i => {
+    const label = i === 0 ? '12am' : i === 12 ? '12pm' : `${i}h`;
+    ctx.fillText(label, i * step, h - 1);
+  });
+}
+
+// ─ Init ───────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    await Promise.all([
+      loadHeatmap(),
+      loadZones(),
+      loadAreas(),
+      loadStats(),
+      loadCrimeTypes(),
+    ]);
+    document.getElementById('loader').classList.add('done');
+  } catch (err) {
+    document.querySelector('.loader-text').textContent = '⚠️ Cannot connect to Flask server';
+    document.querySelector('.loader-sub').textContent = 'Run: python app.py in your terminal';
+    console.error(err);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
