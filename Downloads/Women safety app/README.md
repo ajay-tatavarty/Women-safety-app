@@ -129,17 +129,6 @@ bengaluru_crimes.csv
 
 ---
 
-## Resume Talking Points
-
-- End-to-end ML pipeline: data ingestion → clustering → classification → API → visualization
-- Flexible CSV parser handles 20+ column name variants with graceful fallback
-- K-Means (n=12) for geospatial hotspot detection, DBSCAN for micro-cluster identification
-- Logistic Regression classifies risk zones using 4 engineered features
-- Flask REST API with 7 endpoints; filtered heatmap re-renders dynamically
-- Leaflet.js heatmap with crime type + time-of-day filtering
-- Social impact domain: women's safety awareness
-
----
 
 ## Future Enhancements
 - [ ] Real NCRB data integration
